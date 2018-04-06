@@ -1,16 +1,25 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
 
 void error(const char *msg) {
     perror(msg);
     exit(1);
 }
+
+struct Request {
+    std::string verb;
+    std::string path;
+    std::string httpVersion;
+};
 
 class Server {
     int port;
@@ -86,7 +95,10 @@ class Server {
             memset(buffer, 0, 256);
             n = recv(newsockfd, buffer, 255, 0);
             if (n < 0) error("ERROR reading from socket");
-            printf("%s\n",buffer);
+
+            Request r = this->parse_request(std::string(buffer, 255));
+
+            std::cout << r.verb << " " << r.path << " " <<  r.httpVersion << std::endl;
 
             // sends the response
             n = write(newsockfd,"I got your message",18);
@@ -94,6 +106,19 @@ class Server {
 
             // close client connection
             close(newsockfd);
+        }
+
+        Request parse_request(std::string buffer) {
+            Request r;
+            std::vector<std::string> lines;
+            boost::split(lines, buffer, boost::is_any_of("\n"));
+
+            std::vector<std::string> request_line;
+            boost::split(request_line, lines.at(0), boost::is_any_of(" "));
+            r.verb = request_line.at(0);
+            r.path = request_line.at(1);
+            r.httpVersion = request_line.at(2);
+            return r;
         }
 };
 
