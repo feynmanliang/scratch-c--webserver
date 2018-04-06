@@ -26,7 +26,7 @@ class Request {
             std::vector<std::string> lines;
             boost::split(lines, buffer, boost::is_any_of("\n"));
 
-            std::vector<std::string>::iterator it  = lines.begin();
+            auto it  = lines.begin();
 
             // parse header
             std::vector<std::string> request_line;
@@ -126,8 +126,7 @@ class Server {
             Request r(buffer);
 
             std::cout << r.verb << " " << r.path << " " <<  r.httpVersion << std::endl;
-            for (std::map<std::string, std::string>::iterator it = r.headers.begin();
-                    it != r.headers.end(); ++it) {
+            for (auto it = r.headers.begin(); it != r.headers.end(); ++it) {
                 std::cout << it->first << ": " << it->second << std::endl;
             }
 
