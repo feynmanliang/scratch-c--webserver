@@ -15,11 +15,37 @@ void error(const char *msg) {
     exit(1);
 }
 
-struct Request {
-    std::string verb;
-    std::string path;
-    std::string httpVersion;
-    std::map<std::string, std::string> headers;
+class Request {
+    public:
+        std::string verb;
+        std::string path;
+        std::string httpVersion;
+        std::map<std::string, std::string> headers;
+
+        Request(std::string buffer) {
+            std::vector<std::string> lines;
+            boost::split(lines, buffer, boost::is_any_of("\n"));
+
+            std::vector<std::string>::iterator it  = lines.begin();
+
+            // parse header
+            std::vector<std::string> request_line;
+            boost::split(request_line, *it, boost::is_any_of(" "));
+            this->verb = request_line.at(0);
+            this->path = request_line.at(1);
+            this->httpVersion = request_line.at(2);
+
+            request_line.clear();
+            for (++it; (it != lines.end()) && (it->size() > 1); ++it) {
+                boost::sregex_token_iterator i(it->begin(), it->end(), boost::regex(":"), -1);
+                boost::sregex_token_iterator j;
+                if (i != j)
+                    this->headers.insert(std::pair<std::string, std::string>(*i, *i++));
+                request_line.clear();
+            }
+        }
+
+        ~Request() { }
 };
 
 class Server {
@@ -28,13 +54,13 @@ class Server {
     struct addrinfo *servinfo;
 
     public:
-        Server(int p) {
-            port = p;
+        Server(int port) {
+            this->port = port;
         }
 
         ~Server() {
-            freeaddrinfo(servinfo);
-            close(sockfd);
+            freeaddrinfo(this->servinfo);
+            close(this->sockfd);
         };
 
         /**
@@ -52,26 +78,26 @@ class Server {
             hints.ai_socktype = SOCK_STREAM; // TCP stream socket
             hints.ai_flags = AI_PASSIVE; // returned socket address structure intended for bind; fill in hostname
             char portstr[8];
-            sprintf(portstr, "%i", port);
+            sprintf(portstr, "%i", this->port);
             if ((status = getaddrinfo(NULL, portstr, &hints, &servinfo)) != 0) {
                 fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
                 exit(1);
             }
 
             // creates a socket
-            sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-            if (sockfd < 0)
+            this->sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+            if (this->sockfd < 0)
                 error("ERROR opening socket");
 
             // allow socket to be reused immediately
             int yes = 1;
-            if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
+            if (setsockopt(this->sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
                 error("ERROR setting socket option");
 
             // binds socket to localhost:3000 (specified in servinfo) and starts listening
-            if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0)
+            if (bind(this->sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0)
                 error("ERROR on binding");
-            listen(sockfd, 0); // no backlog
+            listen(this->sockfd, 0); // no backlog
 
             this->handle_message();
         }
@@ -88,7 +114,7 @@ class Server {
 
             // accept the client connection
             clilen = sizeof cli_addr;
-            newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+            newsockfd = accept(this->sockfd, (struct sockaddr *) &cli_addr, &clilen);
             if (newsockfd < 0)
                 error("ERROR on accept");
 
@@ -97,7 +123,7 @@ class Server {
             n = recv(newsockfd, buffer, 255, 0);
             if (n < 0) error("ERROR reading from socket");
 
-            Request r = this->parse_request(std::string(buffer, 255));
+            Request r(buffer);
 
             std::cout << r.verb << " " << r.path << " " <<  r.httpVersion << std::endl;
             for (std::map<std::string, std::string>::iterator it = r.headers.begin();
@@ -111,32 +137,6 @@ class Server {
 
             // close client connection
             close(newsockfd);
-        }
-
-        Request parse_request(std::string buffer) {
-            Request r;
-            std::vector<std::string> lines;
-            boost::split(lines, buffer, boost::is_any_of("\n"));
-
-            std::vector<std::string>::iterator it  = lines.begin();
-
-            // parse header
-            std::vector<std::string> request_line;
-            boost::split(request_line, *it, boost::is_any_of(" "));
-            r.verb = request_line.at(0);
-            r.path = request_line.at(1);
-            r.httpVersion = request_line.at(2);
-
-            request_line.clear();
-            for (++it; (it != lines.end()) && (it->size() > 1); ++it) {
-                boost::sregex_token_iterator i(it->begin(), it->end(), boost::regex(":"), -1);
-                boost::sregex_token_iterator j;
-                if (i != j)
-                    r.headers.insert(std::pair<std::string, std::string>(*i, *i++));
-                request_line.clear();
-            }
-
-            return r;
         }
 };
 
