@@ -19,6 +19,7 @@ struct Request {
     std::string verb;
     std::string path;
     std::string httpVersion;
+    std::map<std::string, std::string> headers;
 };
 
 class Server {
@@ -99,6 +100,10 @@ class Server {
             Request r = this->parse_request(std::string(buffer, 255));
 
             std::cout << r.verb << " " << r.path << " " <<  r.httpVersion << std::endl;
+            for (std::map<std::string, std::string>::iterator it = r.headers.begin();
+                    it != r.headers.end(); ++it) {
+                std::cout << it->first << ": " << it->second << std::endl;
+            }
 
             // sends the response
             n = write(newsockfd,"I got your message",18);
@@ -113,11 +118,24 @@ class Server {
             std::vector<std::string> lines;
             boost::split(lines, buffer, boost::is_any_of("\n"));
 
+            std::vector<std::string>::iterator it  = lines.begin();
+
+            // parse header
             std::vector<std::string> request_line;
-            boost::split(request_line, lines.at(0), boost::is_any_of(" "));
+            boost::split(request_line, *it, boost::is_any_of(" "));
             r.verb = request_line.at(0);
             r.path = request_line.at(1);
             r.httpVersion = request_line.at(2);
+
+            request_line.clear();
+            for (++it; (it != lines.end()) && (it->size() > 1); ++it) {
+                boost::sregex_token_iterator i(it->begin(), it->end(), boost::regex(":"), -1);
+                boost::sregex_token_iterator j;
+                if (i != j)
+                    r.headers.insert(std::pair<std::string, std::string>(*i, *i++));
+                request_line.clear();
+            }
+
             return r;
         }
 };
