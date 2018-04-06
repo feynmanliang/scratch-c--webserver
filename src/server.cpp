@@ -52,26 +52,40 @@ int listen(int port) {
     return sockfd;
 }
 
-int main(int argc, char *argv[]) {
-    int sockfd, newsockfd;
-    sockfd = listen(3000);
+/**
+ * Handles a single message and exits
+ */
+void handle_message(int sockfd) {
+    int newsockfd;
     socklen_t clilen;
     char buffer[256];
     int n;
     struct sockaddr_storage cli_addr;
 
+    // accept the client connection
     clilen = sizeof cli_addr;
     newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
     if (newsockfd < 0)
         error("ERROR on accept");
-    memset(buffer, 0, 256);
+
     // read() is the generic fd syscall, recv() is specific to sockets
+    memset(buffer, 0, 256);
     n = recv(newsockfd, buffer, 255, 0);
     if (n < 0) error("ERROR reading from socket");
-    printf("Here is the message: %s\n",buffer);
+    printf("%s\n",buffer);
+
+    // sends the response
     n = write(newsockfd,"I got your message",18);
     if (n < 0) error("ERROR writing to socket");
+
+    // close client connection
     close(newsockfd);
+}
+
+int main(int argc, char *argv[]) {
+    int sockfd;
+    sockfd = listen(3000);
+    handle_message(sockfd);
     close(sockfd);
     return 0;
 }
