@@ -79,7 +79,7 @@ class Server {
             hints.ai_flags = AI_PASSIVE; // returned socket address structure intended for bind; fill in hostname
             char portstr[8];
             sprintf(portstr, "%i", this->port);
-            if ((status = getaddrinfo(NULL, portstr, &hints, &servinfo)) != 0) {
+            if ((status = getaddrinfo(nullptr, portstr, &hints, &servinfo)) != 0) {
                 fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
                 exit(1);
             }
@@ -126,8 +126,8 @@ class Server {
             Request r(buffer);
 
             std::cout << r.verb << " " << r.path << " " <<  r.httpVersion << std::endl;
-            for (auto it = r.headers.begin(); it != r.headers.end(); ++it) {
-                std::cout << it->first << ": " << it->second << std::endl;
+            for (const auto &kvp : r.headers) {
+                std::cout << kvp.first << ": " << kvp.second << std::endl;
             }
 
             // sends the response
