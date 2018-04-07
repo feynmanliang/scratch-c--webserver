@@ -22,26 +22,25 @@ class Request {
         std::string httpVersion;
         std::map<std::string, std::string> headers;
 
-        Request(std::string buffer) {
+        Request(const std::string &buffer) {
             std::vector<std::string> lines;
             boost::split(lines, buffer, boost::is_any_of("\n"));
 
             auto it  = lines.begin();
 
-            // parse header
+            // parse request line
             std::vector<std::string> request_line;
             boost::split(request_line, *it, boost::is_any_of(" "));
             this->verb = request_line.at(0);
             this->path = request_line.at(1);
             this->httpVersion = request_line.at(2);
 
-            request_line.clear();
+            // parse headers
             for (++it; (it != lines.end()) && (it->size() > 1); ++it) {
-                boost::sregex_token_iterator i(it->begin(), it->end(), boost::regex(":"), -1);
+                boost::sregex_token_iterator i(it->begin(), it->end(), boost::regex(": "), -1);
                 boost::sregex_token_iterator j;
                 if (i != j)
                     this->headers.insert(std::pair<std::string, std::string>(*i, *i++));
-                request_line.clear();
             }
         }
 
@@ -77,9 +76,7 @@ class Server {
             hints.ai_family = AF_UNSPEC;     // IPv4 or IPv6 both work
             hints.ai_socktype = SOCK_STREAM; // TCP stream socket
             hints.ai_flags = AI_PASSIVE; // returned socket address structure intended for bind; fill in hostname
-            char portstr[8];
-            sprintf(portstr, "%i", this->port);
-            if ((status = getaddrinfo(nullptr, portstr, &hints, &servinfo)) != 0) {
+            if ((status = getaddrinfo(nullptr, std::to_string(this->port).c_str(), &hints, &servinfo)) != 0) {
                 fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
                 exit(1);
             }
@@ -90,7 +87,7 @@ class Server {
                 error("ERROR opening socket");
 
             // allow socket to be reused immediately
-            int yes = 1;
+            const int yes = 1;
             if (setsockopt(this->sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
                 error("ERROR setting socket option");
 
